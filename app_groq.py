@@ -1,17 +1,14 @@
 import streamlit as st
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-from langchain.document_loaders import PyPDFLoader
 from langchain import PromptTemplate
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import warnings
-from langchain_google_genai import ChatGoogleGenerativeAI
 import google.generativeai as genai
 import os
-import io
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
@@ -62,34 +59,29 @@ def load_llm():
     llm = ChatGroq(temperature=0.4, model_name="llama3-8b-8192")
     return llm
 
-@st.cache_resource
-def create_vector_db(texts, embeddings):
-    return FAISS.from_documents(texts, embeddings)
-
-def qa_bot(uploaded_files):
+def process_documents(uploaded_files):
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
                                        model_kwargs={'device': 'cpu'})
 
+    texts = []
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=20)
+
+    for uploaded_file in uploaded_files:
+        content = uploaded_file.read().decode("utf-8")
+        texts.extend(text_splitter.split_text(content))
+
+    db = FAISS.from_texts(texts, embeddings)
+    return db
+
+def qa_bot(uploaded_files):
     if uploaded_files:
-        texts = []
-        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=20)
-
-        for uploaded_file in uploaded_files:
-            content = uploaded_file.read().decode("utf-8")
-            texts.extend(text_splitter.split_text(content))
-
-        db = create_vector_db(texts, embeddings)
-        st.sidebar.success("Vector DB created.")
+        db = process_documents(uploaded_files)
+        llm = load_llm()
+        qa_prompt = llama_prompt
+        qa = retrieval_qa_chain(llm, qa_prompt, db)
+        return qa
     else:
-        st.sidebar.error("No files uploaded. Please upload TXT files.")
         return None
-
-    llm = load_llm()
-    qa_prompt = llama_prompt
-    qa = retrieval_qa_chain(llm, qa_prompt, db)
-    st.sidebar.success("Retrieval QA chain created.")
-
-    return qa
 
 def main():
     st.title("Mekhosha-IFA-VIIT Project")
@@ -98,12 +90,12 @@ def main():
     uploaded_files = st.sidebar.file_uploader("Choose files", type=["txt"], accept_multiple_files=True)
     
     if uploaded_files:
-        if st.sidebar.button("Start Ingestion"):
+        if st.sidebar.button("Process Documents"):
             progress_bar = st.sidebar.progress(0)
-            st.sidebar.info("Ingestion in progress...")
+            st.sidebar.info("Processing documents...")
             qa_result = qa_bot(uploaded_files)
             progress_bar.progress(100)
-            st.sidebar.success("Ingestion completed!")
+            st.sidebar.success("Documents processed!")
 
             if qa_result:
                 query = st.text_input("Enter your query:")
