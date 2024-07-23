@@ -5,16 +5,13 @@ from langchain.document_loaders import PyPDFLoader
 from langchain import PromptTemplate
 from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.vectorstores import FAISS
-from langchain.llms import LlamaCpp
 from langchain.chains import RetrievalQA
-from langchain.callbacks.manager import CallbackManager
-from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import warnings
 from langchain_google_genai import ChatGoogleGenerativeAI
 import google.generativeai as genai
-from langchain_community.document_loaders import TextLoader
 import os
+import io
 
 load_dotenv()
 os.getenv("GOOGLE_API_KEY")
@@ -22,9 +19,6 @@ groq_api_key = os.getenv("GROQ_API_KEY")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 warnings.filterwarnings("ignore")
-
-DATA_PATH = 'input_data/'
-DB_FAISS_PATH = 'vectorstore/db_faiss'
 
 ## Default LLaMA-2 prompt style
 B_INST, E_INST = "[INST]", "[/INST]"
@@ -39,7 +33,7 @@ def get_prompt(instruction, new_system_prompt=DEFAULT_SYSTEM_PROMPT):
     prompt_template = B_INST + SYSTEM_PROMPT + instruction + E_INST
     return prompt_template
 
-sys_prompt = """select response only from stored database. You are an expert assistant tasked with answering questions based on the provided context about webniar transcripts
+sys_prompt = """select response only from stored database. You are an expert assistant tasked with answering questions based on the provided context about webinar transcripts
 """
 
 instruction = """CONTEXT:/n/n {context}/n
@@ -65,71 +59,53 @@ def retrieval_qa_chain(llm, prompt, db):
     return qa_chain
 
 def load_llm():
-    callback_manager = CallbackManager([StreamingStdOutCallbackHandler()])
-    # llm = ChatGoogleGenerativeAI(model="gemini-pro",
-    #                          temperature=0.3)
     llm = ChatGroq(temperature=0.4, model_name="llama3-8b-8192")
     return llm
 
-def qa_bot(upload_option, uploaded_files):
+@st.cache_resource
+def create_vector_db(texts, embeddings):
+    return FAISS.from_documents(texts, embeddings)
+
+def qa_bot(uploaded_files):
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
                                        model_kwargs={'device': 'cpu'})
 
-    if upload_option:
-        st.sidebar.success("TXT(s) Uploaded successfully!")
-        
-        DATA_PATH = 'input_pdfs/'
+    if uploaded_files:
         texts = []
+        text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=20)
 
         for uploaded_file in uploaded_files:
-            file_path = os.path.join(DATA_PATH, uploaded_file.name)
-            with open(file_path, 'wb') as f:
-                f.write(uploaded_file.getbuffer())
+            content = uploaded_file.read().decode("utf-8")
+            texts.extend(text_splitter.split_text(content))
 
-            text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=20)
-            loader = TextLoader(file_path)
-            documents = loader.load()
-            texts.extend(text_splitter.split_documents(documents))
-
-        db = FAISS.from_documents(texts, embeddings)
-        db.save_local(DB_FAISS_PATH)
-        st.sidebar.success("Vector DB created and saved locally.")
-
-        llm = load_llm()
-        qa_prompt = llama_prompt
-        qa = retrieval_qa_chain(llm, qa_prompt, db)
-        st.sidebar.success("Retrieval QA chain created.")
-
-        return qa
-
+        db = create_vector_db(texts, embeddings)
+        st.sidebar.success("Vector DB created.")
     else:
-        db = FAISS.load_local(DB_FAISS_PATH, embeddings, allow_dangerous_deserialization=True)
-        st.sidebar.info("Using existing Vector DB.")
+        st.sidebar.error("No files uploaded. Please upload TXT files.")
+        return None
 
-        llm = load_llm()
-        qa_prompt = llama_prompt
-        qa = retrieval_qa_chain(llm, qa_prompt, db)
-        st.sidebar.success("Retrieval QA chain created.")
+    llm = load_llm()
+    qa_prompt = llama_prompt
+    qa = retrieval_qa_chain(llm, qa_prompt, db)
+    st.sidebar.success("Retrieval QA chain created.")
 
-        return qa
+    return qa
 
 def main():
     st.title("Mekhosha-IFA-VIIT Project")
 
-    # Sidebar option for PDF document upload
     st.sidebar.title("Upload TXT Document")
-    upload_option = st.sidebar.checkbox("Upload a TXT?")
+    uploaded_files = st.sidebar.file_uploader("Choose files", type=["txt"], accept_multiple_files=True)
     
-    if upload_option:
-        uploaded_files = st.sidebar.file_uploader("Choose files", type=["txt"], accept_multiple_files=True)
-        if uploaded_files:
-            if st.sidebar.button("Start Ingestion"):
-                progress_bar = st.sidebar.progress(0)
-                st.sidebar.info("Ingestion in progress...")
-                qa_result = qa_bot(upload_option, uploaded_files)
-                progress_bar.success("Ingestion completed!")
+    if uploaded_files:
+        if st.sidebar.button("Start Ingestion"):
+            progress_bar = st.sidebar.progress(0)
+            st.sidebar.info("Ingestion in progress...")
+            qa_result = qa_bot(uploaded_files)
+            progress_bar.progress(100)
+            st.sidebar.success("Ingestion completed!")
 
-                # User input section
+            if qa_result:
                 query = st.text_input("Enter your query:")
                 if st.button("Submit"):
                     progress_bar_main = st.progress(0)
@@ -143,24 +119,8 @@ def main():
                         st.write(response["source_documents"])
 
                         progress_bar_main.empty()
-
     else:
-        query = st.text_input("Enter your query:")
-        
-        if st.button("Submit"):
-            progress_bar_main = st.progress(0)
-
-            with st.spinner("Searching for answers..."):
-                qa_result = qa_bot(upload_option, None)
-                response = qa_result({'query': query})
-                st.success("Found an answer!")
-
-            st.markdown("#### Answer:")
-            st.write(response["result"])
-            # st.markdown("#### Source Documents:")
-            # st.write(response["source_documents"])
-
-            progress_bar_main.empty()
+        st.sidebar.warning("Please upload TXT files to proceed.")
 
 if __name__ == "__main__":
     main()
