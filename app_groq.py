@@ -7,14 +7,13 @@ from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import warnings
-import google.generativeai as genai
 import os
 
 # Load environment variables and configure API keys
 load_dotenv()
-os.getenv("GOOGLE_API_KEY")
+# os.getenv("GOOGLE_API_KEY")
 groq_api_key = os.getenv("GROQ_API_KEY")
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+# genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 warnings.filterwarnings("ignore")
 
