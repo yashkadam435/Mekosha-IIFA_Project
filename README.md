@@ -8,7 +8,7 @@ This project provides a question-answering application using the LangChain frame
 - Query the uploaded documents using a retrieval-augmented question-answering system.
 - Supports embedding generation using `sentence-transformers/all-MiniLM-L6-v2`.
 - Uses FAISS for similarity search.
-- LLM-based answer generation using Llama-2.
+- LLM-based answer generation using Llama-3.
 - Retrieves and displays source documents along with answers.
 
 ## Requirements
