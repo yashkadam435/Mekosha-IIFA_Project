@@ -34,7 +34,7 @@ pip install -r requirements.txt
 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/Mekhosha-IFA-VIIT.git
+https://github.com/yashkadam435/Mekosha-IIFA_Project.git
 cd Mekhosha-IFA-VIIT
 ```
 
