@@ -79,13 +79,9 @@ streamlit run app.py
 2) LLM Response Generation:
 
 - A question-answering chain is built using the RetrievalQA from LangChain.
-- The selected LLM (Llama-2) is used to generate answers based on the retrieved context from the FAISS store.
+- The selected LLM (Llama-3) is used to generate answers based on the retrieved context from the FAISS store.
 
 3) Query Submission:
 
 - Users can input their queries. The application fetches relevant document chunks and generates an answer using the LLM.
 - The response and related source documents are displayed.
-
-## License
-
-This project is licensed under the MIT License. See the LICENSE file for details.
