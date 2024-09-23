@@ -29,6 +29,7 @@ pip install -r requirements.txt
 - langchain-community
 - langchain-groq
 - langchain-huggingface
+- pinecone-client
 
 ## Usage
 1. Clone the Repository
