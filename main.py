@@ -102,7 +102,7 @@ def read_file(uploaded_file):
 # Process documents and store vectors in Pinecone
 def process_documents(uploaded_files):
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
-                                       model_kwargs={'device': 'cpu'})
+                                    model_kwargs={'device': 'cpu'})
     texts = []
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=20)
 
@@ -148,11 +148,11 @@ def main():
 
     if index_exists and st.session_state.qa_chain is None:
         # Load the vectorstore and set up the QA chain
-        with st.spinner("Loading existing Pinecone index..."):
+        with st.spinner("Loading existing database..."):
             vectorstore = load_vectorstore()
             llm = load_llm()
             st.session_state.qa_chain = retrieval_qa_chain(llm, vectorstore)
-        st.success("Index loaded and ready to query!")
+        st.success("Database loaded and ready to query!")
 
     st.sidebar.title("Upload Documents")
     uploaded_files = st.sidebar.file_uploader("Choose files", type=["txt", "pdf", "docx"], accept_multiple_files=True)
