@@ -137,7 +137,7 @@ def load_vectorstore():
     return vectorstore
 
 def main():
-    st.title("Mekosha-IFA-VIIT Project")
+    st.title("Mekhosha-IFA-VIIT Project")
 
     # Initialize session state
     if 'qa_chain' not in st.session_state:
